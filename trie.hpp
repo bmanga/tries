@@ -18,13 +18,13 @@ template <class ValueT>
 class node_t 
 {
 	struct node_less {
-		bool operator () (const node_t &lhs, const node_t &rhs) const{
+		bool operator () (const node_t &lhs, const node_t &rhs) const {
 			return lhs.value() < rhs.value();
 		}
-		bool operator () (const node_t &lhs, const ValueT &rhs) const{
+		bool operator () (const node_t &lhs, const ValueT &rhs) const {
 			return lhs.value() < rhs;
 		}
-		bool operator () (const ValueT &lhs, const node_t &rhs) const{
+		bool operator () (const ValueT &lhs, const node_t &rhs) const {
 			return lhs < rhs.value();
 		}
 		struct is_transparent {};
@@ -82,7 +82,8 @@ public:
 
 		if (it == end(children_)) return nullptr;
 
-		return const_cast<node_t *>(&*it); // I promise I won't change the contained value
+		// I promise I won't change the contained value
+		return const_cast<node_t *>(&*it); 
 	}
 	const node_t *get_child(ValueT ch) const {
 		return const_cast<node_t *>(this)->get_child(ch);

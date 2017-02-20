@@ -1,5 +1,4 @@
 #include "../trie.hpp"
-#include <iostream>
 #include "gtest/gtest.h"
 
 static std::vector<std::string> words = {
@@ -98,10 +97,7 @@ TEST(trie, coro) {
 
 	ASSERT_EQ(actual, expected);
 }
-
 #endif
-
-
 
 int main(int argc, char *argv[]) {
 	testing::InitGoogleTest(&argc, argv);
