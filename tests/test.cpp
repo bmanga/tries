@@ -28,7 +28,7 @@ TEST(utils, node_to_char_string) {
 
 	const auto *n = t.find_prefix("play");
 
-	ASSERT_EQ(node_to_string(n), expected);
+	ASSERT_EQ(utils::node_to_string(n), expected);
 }
 
 TEST(utils, node_to_wchar_string) {
@@ -38,7 +38,7 @@ TEST(utils, node_to_wchar_string) {
 
 	const auto *n = t.find_prefix(L"inter");
 
-	ASSERT_EQ(node_to_string(n), expected);
+	ASSERT_EQ(utils::node_to_string(n), expected);
 }
 
 TEST(node, paths_to) {

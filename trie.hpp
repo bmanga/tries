@@ -71,6 +71,30 @@ public:
 		return results;
 	}
 
+	void append_paths_to(path_list &results, ValueT v, unsigned min_height_req = 0) const {
+		for (const node_t &node : children_) {
+			if (const node_t *n = node.get_child(v)) {
+				if (n->height_ >= min_height_req) {
+					results.push_back(n);
+				}
+			}
+		}
+
+		return results;
+	}
+
+
+	path_list paths_to2(ValueT v, unsigned min_height_req = 0) const {
+		path_list results;
+		for (const node_t &node : children_) {
+			node.append_paths_to(results, v, min_height_req);
+
+		}
+
+		return results;
+	}
+
+
 	void remove_child(ValueT v) {
 		children_.erase(children_.find(v));
 		if (children_.size() == 0) {
@@ -164,7 +188,7 @@ struct depth_t_selector {
 };
 }// namespace impl_
 
-
+namespace utils {
 template <class Node>
 decltype(auto) node_to_string(const Node *n, size_t extra_entries = 0) {
 	std::basic_string<
@@ -183,7 +207,7 @@ decltype(auto) node_to_string(const Node *n, size_t extra_entries = 0) {
 	return result;
 }
 
-
+} // namespace utils
 
 /*****************************************************************************/
 
@@ -277,26 +301,19 @@ public:
 		if (diff == 1) {
 			for (const auto &child : it->get_children()) {
 				if (child.marked()) 
-					results.push_back(node_to_string(&child));
+					results.push_back(utils::node_to_string(&child));
 			}
 
 			return results;
 		}
 
-		// We are two characters behind.
-		string last_chars{ s.end() - 2, s.end() - 1 };
-
 		auto paths_to_last = it->paths_to(*(s.end() - 1));
-
-		auto end_it = std::remove_if(begin(paths_to_last),
-			end(paths_to_last),
-			[](const auto *n) { return !(n->marked()); });
-
-		paths_to_last.erase(end_it, end(paths_to_last));
-
 		results.reserve(paths_to_last.size());
-		std::transform(begin(paths_to_last), end(paths_to_last),
-			std::back_inserter(results), [](const node *n) { return node_to_string(n); });
+
+		for (const node *n : paths_to_last) {
+			if (n->marked()) 
+				results.push_back(utils::node_to_string(n));
+		}
 
 		return results;
 	}
