@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <set>
 
-#define EXPERIMENTAL_CORO
 
 #ifdef EXPERIMENTAL_CORO
 #include <experimental\coroutine>
@@ -253,7 +252,7 @@ public:
 	node *find_suffix(const node *n, const string &s, bool allow_unmarked = false) {
 		if (s.empty()) return n;
 
-		string::const_iterator it = s.cbegin();
+		typename string::const_iterator it = s.cbegin();
 		while (it != s.cend()) {
 			n = n->get_child(*it);
 
@@ -350,7 +349,6 @@ public:
 		node *it = find_prefix(s);
 
 		if (!it) {
-			std::cout << s << std::endl;
 			return;
 		}
 		--size_;
