@@ -194,6 +194,27 @@ TEST(trie, closest_match) {
 
 }
 
+TEST(unordered_trie, suggestions) {
+	trie<char, 255U, std::char_traits<char>, impl_::default_vector_storage, impl_::unordered_vector_accessor> t;
+	//trie<char> t;
+	for (auto &s : words) {
+		t.add(s);
+	}
+	std::vector<std::string> expected_a{
+		"afterthought",
+		"alike",
+		"apologise"
+	};
+	auto actual = t.complete_suggestions("a");
+	ASSERT_TRUE(std::is_permutation(begin(actual), end(actual), begin(expected_a)));
+
+	std::vector<std::string> expected_j = {
+		"jail"
+	};
+
+	ASSERT_EQ(t.complete_suggestions("j"), expected_j);
+}
+
 
 #ifdef EXPERIMENTAL_CORO
 TEST(trie, coro) {

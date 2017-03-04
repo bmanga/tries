@@ -129,6 +129,23 @@ static void BM_VecTrieFind(benchmark::State& state) {
 	}
 }
 
+static void BM_UnorderedVecTrieFind(benchmark::State& state) {
+	while (state.KeepRunning()) {
+		state.PauseTiming();
+		trie<char, 255U, std::char_traits<char>, impl_::default_vector_storage, impl_::unordered_vector_accessor> t;
+		auto words = generate_random_words(state.range(0), state.range(1));
+		for (const auto &word : words) {
+			t.add(word);
+		}
+		std::vector<std::string> s;
+		std::sample(words.begin(), words.end(), std::back_inserter(s), state.range(2), std::mt19937{ std::random_device{}() });
+		state.ResumeTiming();
+
+		for (const auto &str : s)
+			t.find_prefix(str);
+	}
+}
+
 static void BM_TrieFindComp(benchmark::State& state) {
 
 	while (state.KeepRunning()) {
@@ -144,9 +161,11 @@ static void BM_TrieFindComp(benchmark::State& state) {
 			(t.search(str, res));
 	}
 }
-std::vector<std::pair<int, int>> ranges = { { 512, 4096 },{ 16, 255 } ,{1, 64} };
+// ranges are : words in trie - length - numsamples
+std::vector<std::pair<int, int>> ranges = { { 512, 4096 },{ 16, 64 } ,{8, 64} };
 BENCHMARK(BM_SetTrieFind)->Ranges(ranges)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_VecTrieFind)->Ranges(ranges)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_UnorderedVecTrieFind)->Ranges(ranges)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_TrieFindComp)->Ranges(ranges)->Unit(benchmark::kMicrosecond);
 
 int main(int argc, char** argv) {
@@ -155,5 +174,6 @@ int main(int argc, char** argv) {
 	if (::benchmark::ReportUnrecognizedArguments(argc, argv)) 
 		return 1; 
 	::benchmark::RunSpecifiedBenchmarks();
+
 	system("PAUSE");
 }

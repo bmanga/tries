@@ -160,6 +160,87 @@ public:
 };
 
 template <class StorageT>
+class unordered_vector_accessor : private StorageT
+{
+public:
+	using storage_t = typename StorageT::storage_t;
+	using value_type = typename StorageT::value_type;
+	using traits = typename StorageT::traits;
+	using node_type = typename StorageT::node_type;
+	using node_pointer = node_type *;
+	using pointer = typename StorageT::pointer;
+	using entry_type = typename StorageT::entry_type;
+
+	typename storage_t::iterator find_pos(value_type val) {
+		return std::find_if(begin(storage_), end(storage_), [=](const entry_type &lhs) {
+			return traits::eq(lhs.value(), val);
+		});
+	}
+
+	template <class... Ts>
+	node_pointer emplace(Ts && ...args) {
+		this->storage_.emplace_back(std::forward<Ts>(args)...);
+		return this->storage_.back().node();
+	}
+
+	node_pointer get(value_type val) {
+		auto pos = this->find_pos(val);
+
+		if (pos == end(storage_)) return nullptr;
+
+		return pos->node();
+	}
+
+	template <class... Ts>
+	// Parameter pack contains all the arguments needed for the node constructor
+	node_pointer get_or_emplace(value_type val, Ts && ...args) {
+		auto pos = this->find_pos(val);
+		if (pos == end(storage_))
+			return emplace(std::forward<Ts>(args)...);
+
+		return pos->node();
+	}
+
+	//void remove();
+
+	// FIXME this is a temporary solution for testing purposes only.
+	auto get_elements() const {
+		return const_cast<unordered_vector_accessor *>(this)->get_elements();
+	}
+
+	struct myit : public storage_t::iterator
+	{
+		using base = typename storage_t::iterator;
+		using base::base;
+
+		myit(base it) : base(it) {}
+		node_type &operator*() {
+			return *(base::operator*().node());
+		}
+	};
+
+	struct mypair
+	{
+		using it = typename storage_t::iterator;
+		mypair(it beg, it end) : beg_(beg), end_(end) {}
+		myit begin() { return beg_; }
+		myit end() { return end_; }
+
+		myit beg_;
+		myit end_;
+	};
+	// FIXME this is a temporary solution for testing purposes only.
+	auto get_elements() {
+		return mypair{ begin(storage_), end(storage_) };
+	}
+
+	auto &raw_storage() const {
+		return storage_;
+	}
+
+};
+
+template <class StorageT>
 class default_set_storage_accessor : private StorageT
 {
 public:
