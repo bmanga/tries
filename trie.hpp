@@ -353,10 +353,10 @@ private:
 template <size_t MaxDepth>
 struct depth_t_selector {
 	using type = std::conditional_t <
-		MaxDepth < 256,
+		MaxDepth < std::numeric_limits<uint8_t>::max(),
 		uint8_t,
 		std::conditional_t<
-		MaxDepth < 65536,
+		MaxDepth < std::numeric_limits<uint16_t>::max(),
 		uint16_t,
 		uint32_t>>;
 };
