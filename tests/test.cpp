@@ -1,5 +1,10 @@
+#include <vector>
+
 #include "../trie.hpp"
+
 #include "gtest/gtest.h"
+
+// This is ugly, but codecvt is broken on visual studio.
 
 static std::vector<std::string> words = {
 	"jail","afterthought","nippy","gifted","tiger","snore","part","alike",
@@ -21,8 +26,19 @@ static std::vector<std::wstring> wwords = {
 	L"shelter", L"fancy", L"fine"
 };
 
+static std::vector<std::u32string> uwords = {
+	U"jail", U"afterthought", U"nippy", U"gifted", U"tiger", U"snore", U"part",
+	U"alike", U"tangy", U"dry", U"hesitant", U"building", U"interrupt",
+	U"diligent", U"move", U"spare", U"soggy", U"petite", U"observe", U"ready",
+	U"stitch", U"brick", U"print", U"skin", U"pinch", U"history", U"hands",
+	U"treat", U"prefer", U"tent", U"shallow", U"stain", U"quick", U"like",
+	U"brawny", U"apologise", U"daily", U"hard", U"explode", U"long-term",
+	U"dusty", U"teeth", U"hunt", U"comparison", U"rod", U"one", U"dance",
+	U"shelter", U"fancy", U"fine"
+};
+
 TEST(utils, node_to_char_string) {
-	trie<char> t;
+	trie<char, 255U, std::char_traits<char>> t;
 	t.add("playing");
 	std::string expected = "play";
 
@@ -89,6 +105,7 @@ TEST(trie, add_remove) {
 
 TEST(trie, char_suggestions) {
 	trie<char> t;
+	//trie<char> t;
 	for (auto &s : words) {
 		t.add(s);
 	}
@@ -123,6 +140,30 @@ TEST(trie, wchar_t_suggestions) {
 	};
 
 	ASSERT_EQ(t.complete_suggestions(L"j"), expected_j);
+}
+
+TEST(trie, unicode_suggestions) {
+	trie<char32_t> t;
+	for (auto &s : uwords) {
+		t.add(s);
+	}
+
+	// Test unicode strings
+	t.add(U"a\u20AC");
+
+	std::vector<std::u32string> expected_a{
+		U"afterthought",
+		U"alike",
+		U"apologise",
+		U"a\u20AC"
+	};
+	ASSERT_EQ(t.complete_suggestions(U"a"), expected_a);
+
+	std::vector<std::u32string> expected_j = {
+		U"jail"
+	};
+
+	ASSERT_EQ(t.complete_suggestions(U"j"), expected_j);
 }
 
 TEST(trie, closest_match) {
@@ -178,6 +219,9 @@ TEST(trie, coro) {
 	ASSERT_EQ(actual, expected);
 }
 #endif
+
+
+
 
 
 int main(int argc, char *argv[]) {
