@@ -42,6 +42,9 @@ public:
 
 	using node_iterator = typename storage_t::iterator;
 	using const_node_iterator = typename storage_t::const_iterator;
+
+	node_iterator begin() { return storage_.begin(); }
+	node_iterator end() { return storage_.end(); }
 protected:
 	storage_t storage_;
 };
@@ -471,10 +474,10 @@ private:
 template <size_t MaxDepth>
 struct depth_t_selector {
 	using type = std::conditional_t <
-		MaxDepth < std::numeric_limits<uint8_t>::max(),
+		MaxDepth <= std::numeric_limits<uint8_t>::max(),
 		uint8_t,
 		std::conditional_t<
-		MaxDepth < std::numeric_limits<uint16_t>::max(),
+		MaxDepth <= std::numeric_limits<uint16_t>::max(),
 		uint16_t,
 		uint32_t>>;
 };
