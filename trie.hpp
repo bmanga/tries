@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <set>
 #include <memory>
+#include <type_traits>
 #include <string_view>
 
 
@@ -38,6 +39,9 @@ public:
 	using value_type = ValueT;
 	using pointer = value_type *;
 	using traits = ValueTraits;
+
+	using node_iterator = typename storage_t::iterator;
+	using const_node_iterator = typename storage_t::const_iterator;
 protected:
 	storage_t storage_;
 };
@@ -69,6 +73,44 @@ public:
 	using value_type = ValueT;
 	using pointer = value_type *;
 	using traits = ValueTraits;
+
+	struct node_iterator
+	{
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = node_type;
+		using reference = value_type &;
+		using pointer = value_type *;
+		using storage_it = typename storage_t::iterator;
+
+		node_iterator(storage_it it) : it_(it) {}
+
+
+		reference operator*() {
+			return *it_->node();
+		}
+
+		reference operator->() {
+			return *it_->node();
+		}
+
+		node_iterator &operator++ () {
+			++it_;
+			return *this;
+		}
+
+		bool operator==(const node_iterator &rhs) const {
+			return it_ == rhs.it_;
+		}
+
+		bool operator!=(const node_iterator &rhs) const {
+			return it_ != rhs.it_;
+		}
+	private:
+		storage_it it_;
+	};
+
+	node_iterator begin() { return { storage_.begin() }; }
+	node_iterator end() { return { storage_.end() }; }
 protected:
 	storage_t storage_;
 };
@@ -77,6 +119,8 @@ template <class StorageT>
 class default_vector_accessor : private StorageT
 {
 public:
+	using StorageT::begin;
+	using StorageT::end;
 	using storage_t = typename StorageT::storage_t;
 	using value_type = typename StorageT::value_type;
 	using traits = typename StorageT::traits;
@@ -84,40 +128,41 @@ public:
 	using node_pointer = node_type *;
 	using pointer = typename StorageT::pointer;
 	using entry_type = typename StorageT::entry_type;
+	using node_iterator = typename StorageT::node_iterator;
 
 	typename storage_t::iterator find_pos(value_type val) {
-		return std::lower_bound(begin(storage_), end(storage_), val, [](const entry_type &lhs, value_type rhs) {
+		return std::lower_bound(storage_.begin(), storage_.end(), val, [](const entry_type &lhs, value_type rhs) {
 			return traits::lt(lhs.value(), rhs);
 		});
 	}
 	template <class... Ts>
-	node_pointer emplace(value_type val, Ts && ...args) {
+	node_iterator emplace(value_type val, Ts && ...args) {
 		// Find where the new element should be created.
 		auto pos = this->find_pos(val);
-		return this->emplace_hint(pos, val, std::forward<Ts>(args)...)->node();
+		return this->emplace_hint(pos, val, std::forward<Ts>(args)...);
 	}
 
 	template <class... Ts>
-	node_pointer emplace_hint(typename storage_t::const_iterator pos, value_type val, Ts && ...args) {
-		return this->storage_.emplace(pos, val, std::forward<Ts>(args)...)->node();
+	node_iterator emplace_hint(typename storage_t::const_iterator pos, value_type val, Ts && ...args) {
+		return this->storage_.emplace(pos, val, std::forward<Ts>(args)...);
 	}
 
-	node_pointer get(value_type val) {
+	node_iterator get(value_type val) {
 		auto pos = this->find_pos(val);
 
-		if (pos == end(storage_) || pos->value() != val) return nullptr;
+		if (pos == storage_.end() || pos->value() != val) return this->end();
 
-		return pos->node();
+		return pos;
 	}
 
 	template <class... Ts>
 	// Parameter pack contains all the arguments needed for the node constructor
-	node_pointer get_or_emplace(value_type val, Ts && ...args) {
+	node_iterator get_or_emplace(value_type val, Ts && ...args) {
 		auto pos = this->find_pos(val);
-		if (pos == end(storage_) || pos->value() != val) 
+		if (pos == storage_.end() || pos->value() != val) 
 			return emplace_hint(pos, std::forward<Ts>(args)...);
 
-		return pos->node();
+		return pos;
 	}
 
 	//void remove();
@@ -127,30 +172,22 @@ public:
 		return const_cast<default_vector_accessor *>(this)->get_elements();
 	}
 
-	struct myit : public storage_t::iterator
-	{
-		using base = typename storage_t::iterator;
-		using base::base;
 
-		myit(base it) : base(it) {}
-		node_type &operator*() {
-			return *(base::operator*().node());
-		}
-	};
 
-	struct mypair
+	struct node_range
 	{
 		using it = typename storage_t::iterator;
-		mypair(it beg, it end) : beg_(beg), end_(end) {}
-		myit begin() { return beg_; }
-		myit end() { return end_; }
+		node_range(node_iterator beg, node_iterator end) : beg_(beg), end_(end) {}
 
-		myit beg_;
-		myit end_;
+		node_iterator begin() { return beg_; }
+		node_iterator end() { return end_; }
+
+		node_iterator beg_;
+		node_iterator end_;
 	};
 	// FIXME this is a temporary solution for testing purposes only.
 	auto get_elements() {
-		return mypair{ begin(storage_), end(storage_) };
+		return node_range{ this->begin(), this->end() };
 	}
 
 	auto &raw_storage() const {
@@ -163,6 +200,8 @@ template <class StorageT>
 class unordered_vector_accessor : private StorageT
 {
 public:
+	using StorageT::begin;
+	using StorageT::end;
 	using storage_t = typename StorageT::storage_t;
 	using value_type = typename StorageT::value_type;
 	using traits = typename StorageT::traits;
@@ -170,35 +209,32 @@ public:
 	using node_pointer = node_type *;
 	using pointer = typename StorageT::pointer;
 	using entry_type = typename StorageT::entry_type;
+	using node_iterator = typename StorageT::node_iterator;
 
 	typename storage_t::iterator find_pos(value_type val) {
-		return std::find_if(begin(storage_), end(storage_), [=](const entry_type &lhs) {
+		return std::find_if(storage_.begin(), storage_.end(), [=](const entry_type &lhs) {
 			return traits::eq(lhs.value(), val);
 		});
 	}
 
 	template <class... Ts>
-	node_pointer emplace(Ts && ...args) {
+	node_iterator emplace(Ts && ...args) {
 		this->storage_.emplace_back(std::forward<Ts>(args)...);
-		return this->storage_.back().node();
+		return this->storage_.end() - 1;
 	}
 
-	node_pointer get(value_type val) {
-		auto pos = this->find_pos(val);
-
-		if (pos == end(storage_)) return nullptr;
-
-		return pos->node();
+	node_iterator get(value_type val) {
+		return this->find_pos(val);
 	}
 
 	template <class... Ts>
 	// Parameter pack contains all the arguments needed for the node constructor
-	node_pointer get_or_emplace(value_type val, Ts && ...args) {
+	node_iterator get_or_emplace(value_type val, Ts && ...args) {
 		auto pos = this->find_pos(val);
-		if (pos == end(storage_))
+		if (pos == storage_.end())
 			return emplace(std::forward<Ts>(args)...);
 
-		return pos->node();
+		return pos;
 	}
 
 	//void remove();
@@ -208,31 +244,23 @@ public:
 		return const_cast<unordered_vector_accessor *>(this)->get_elements();
 	}
 
-	struct myit : public storage_t::iterator
-	{
-		using base = typename storage_t::iterator;
-		using base::base;
-
-		myit(base it) : base(it) {}
-		node_type &operator*() {
-			return *(base::operator*().node());
-		}
-	};
-
-	struct mypair
+	struct node_range
 	{
 		using it = typename storage_t::iterator;
-		mypair(it beg, it end) : beg_(beg), end_(end) {}
-		myit begin() { return beg_; }
-		myit end() { return end_; }
+		node_range(node_iterator beg, node_iterator end) : beg_(beg), end_(end) {}
 
-		myit beg_;
-		myit end_;
+		node_iterator begin() { return beg_; }
+		node_iterator end() { return end_; }
+
+		node_iterator beg_;
+		node_iterator end_;
 	};
 	// FIXME this is a temporary solution for testing purposes only.
 	auto get_elements() {
-		return mypair{ begin(storage_), end(storage_) };
+		return node_range{ this->begin(), this->end() };
 	}
+
+
 
 	auto &raw_storage() const {
 		return storage_;
@@ -244,28 +272,27 @@ template <class StorageT>
 class default_set_storage_accessor : private StorageT
 {
 public:
+	using StorageT::begin;
+	using StorageT::end;
 	using storage_t = typename StorageT::storage_t;
 	using value_type = typename StorageT::value_type;
 	using node_type = typename StorageT::node_type;
 	using node_pointer = node_type *;
 	using pointer = typename StorageT::pointer;
+	using node_iterator = typename StorageT::node_iterator;
 
 	template <class... Ts>
-	node_pointer emplace(Ts && ...args) {
-		return const_cast<node_pointer>(&*(this->storage_.emplace(std::forward<Ts>(args)...).first));
+	node_iterator emplace(Ts && ...args) {
+		return this->storage_.emplace(std::forward<Ts>(args)...).first;
 	}
 
-	node_pointer get(value_type val) {
-		auto it = storage_.find(val);
-		if (it == end(storage_)) return nullptr;
-
-		// We will not change the ordering value
-		return const_cast<node_pointer>(std::addressof(*it));
+	node_iterator get(value_type val) {
+		return storage_.find(val);
 	}
 
 	// We know that for std::set, this is equivalent to an emplace function.
 	template <class... Ts>
-	node_pointer get_or_emplace(value_type val, Ts && ...args) {
+	node_iterator get_or_emplace(value_type val, Ts && ...args) {
 		return emplace(std::forward<Ts>(args)...);
 	}
 
@@ -298,6 +325,7 @@ public:
 	using value_type = ValueT;
 	using depth_type = DepthT;
 	using traits_type = ValueTraits;
+	//using iterator = typename AccessorT_::child_iterator;
 	//using allocator_type = Allocator;
 
 	node_t(ValueT ch, node_t *parent, DepthT depth, bool marked = false) :
@@ -313,7 +341,7 @@ public:
 
 	node_t *get_or_emplace(ValueT c) {
 		if (height_ == 0) increase_height();
-		return this->AccessorT_::get_or_emplace(c, c, this, depth_ + 1, false);
+		return mut_ptr_cast_(std::addressof(*this->AccessorT_::get_or_emplace(c, c, this, depth_ + 1, false)));
 	}
 
 	using path_list = std::vector<const node_t *>;
@@ -356,6 +384,8 @@ public:
 	}
 
 
+
+
 	//void remove_child(ValueT v) {
 	//	children_.erase(children_.find(v));
 	//	if (children_.size() == 0) {
@@ -384,8 +414,15 @@ public:
 	}
 
 	node_t *get_child(ValueT ch) {
-		return this->AccessorT_::get(ch);
+		auto it = this->AccessorT_::get(ch);
+		if (it == this->end()) return nullptr;
+		return mut_ptr_cast_(std::addressof(*this->AccessorT_::get(ch)));
 	}
+
+	node_t *mut_ptr_cast_(const node_t *node) {
+		return const_cast<node_t *>(node);
+	}
+
 	const node_t *get_child(ValueT ch) const {
 		return const_cast<node_t *>(this)->get_child(ch);
 	}
